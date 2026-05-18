@@ -1,0 +1,47 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "OTPR-.YYYY.-.#####",
+ "creation": "2026-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "phone_number",
+  "purpose",
+  "campaign",
+  "award",
+  "col_state",
+  "otp_hash",
+  "status",
+  "attempts",
+  "sec_time",
+  "created_at",
+  "expires_at"
+ ],
+ "fields": [
+  {"fieldname": "phone_number", "fieldtype": "Data", "label": "Phone Number", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "purpose", "fieldtype": "Select", "label": "Purpose", "options": "Nominate\nVote", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "campaign", "fieldtype": "Link", "label": "Campaign", "options": "Campaign", "reqd": 1},
+  {"fieldname": "award", "fieldtype": "Link", "label": "Award", "options": "Award"},
+  {"fieldname": "col_state", "fieldtype": "Column Break"},
+  {"fieldname": "otp_hash", "fieldtype": "Data", "label": "OTP Hash", "reqd": 1, "read_only": 1},
+  {"fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "Pending\nUsed\nExpired\nFailed", "default": "Pending", "in_list_view": 1},
+  {"fieldname": "attempts", "fieldtype": "Int", "label": "Attempts", "default": 0},
+  {"fieldname": "sec_time", "fieldtype": "Section Break"},
+  {"fieldname": "created_at", "fieldtype": "Datetime", "label": "Created At", "read_only": 1},
+  {"fieldname": "expires_at", "fieldtype": "Datetime", "label": "Expires At", "read_only": 1}
+ ],
+ "links": [],
+ "modified": "2026-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nominations",
+ "name": "OTP Request",
+ "owner": "Administrator",
+ "permissions": [
+  {"create": 0, "delete": 1, "email": 0, "export": 0, "print": 0, "read": 1, "report": 1, "role": "System Manager", "share": 0, "write": 0}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

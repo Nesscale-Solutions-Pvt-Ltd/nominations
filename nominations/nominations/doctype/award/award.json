@@ -1,0 +1,50 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "NOM-AWD-.#####",
+ "creation": "2026-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "campaign",
+  "award_name",
+  "slug",
+  "sequence",
+  "max_finalists",
+  "col_meta",
+  "description",
+  "icon_or_image",
+  "sec_results",
+  "winner_nomination",
+  "public_voting_url",
+  "total_finalists"
+ ],
+ "fields": [
+  {"fieldname": "campaign", "fieldtype": "Link", "label": "Campaign", "options": "Campaign", "reqd": 1, "in_list_view": 1, "in_standard_filter": 1},
+  {"fieldname": "award_name", "fieldtype": "Data", "label": "Award Name", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "slug", "fieldtype": "Data", "label": "Slug", "reqd": 1, "in_list_view": 1, "description": "URL-safe, unique within campaign."},
+  {"fieldname": "sequence", "fieldtype": "Int", "label": "Display Sequence", "default": 0},
+  {"fieldname": "max_finalists", "fieldtype": "Int", "label": "Max Finalists", "default": 5, "description": "Soft limit — admin gets a warning if exceeded."},
+  {"fieldname": "col_meta", "fieldtype": "Column Break"},
+  {"fieldname": "description", "fieldtype": "Small Text", "label": "Description"},
+  {"fieldname": "icon_or_image", "fieldtype": "Attach Image", "label": "Icon or Image"},
+  {"fieldname": "sec_results", "fieldtype": "Section Break", "label": "Results"},
+  {"fieldname": "winner_nomination", "fieldtype": "Link", "label": "Winner Nomination", "options": "Nomination", "read_only": 1},
+  {"fieldname": "public_voting_url", "fieldtype": "Data", "label": "Public Voting URL", "read_only": 1},
+  {"fieldname": "total_finalists", "fieldtype": "Int", "label": "Total Finalists", "read_only": 1, "default": 0}
+ ],
+ "links": [],
+ "modified": "2026-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nominations",
+ "name": "Award",
+ "owner": "Administrator",
+ "permissions": [
+  {"create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "read": 1, "report": 1, "role": "System Manager", "share": 1, "write": 1},
+  {"create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "read": 1, "report": 1, "role": "Nominations Manager", "share": 1, "write": 1}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

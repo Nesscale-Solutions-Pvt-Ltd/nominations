@@ -86,7 +86,20 @@ app_license = "mit"
 # ------------
 
 # before_install = "nominations.install.before_install"
-# after_install = "nominations.install.after_install"
+after_install = "nominations.install.after_install"
+
+# Website routes for the public SPA
+website_route_rules = [
+	{"from_route": "/nominate/<path:app_path>", "to_route": "nominations"},
+	{"from_route": "/vote/<path:app_path>", "to_route": "nominations"},
+]
+
+# Desk JS for admin buttons
+doctype_js = {
+	"Campaign": "public/js/campaign.js",
+	"Award": "public/js/award.js",
+	"Nomination": "public/js/nomination.js",
+}
 
 # Uninstallation
 # ------------
@@ -166,6 +179,15 @@ app_license = "mit"
 # 		"nominations.tasks.monthly"
 # 	],
 # }
+
+scheduler_events = {
+	"cron": {
+		"*/10 * * * *": [
+			"nominations.scheduler.auto_transition_campaigns",
+			"nominations.scheduler.cleanup_expired_otps",
+		]
+	}
+}
 
 # Testing
 # -------

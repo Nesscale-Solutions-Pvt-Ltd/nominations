@@ -1,0 +1,43 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "NOM-VOT-.YYYY.-.#####",
+ "creation": "2026-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "nomination",
+  "award",
+  "business_name",
+  "contact_person_name",
+  "voted_at",
+  "col_audit",
+  "voter_phone_hash",
+  "voted_from_ip",
+  "voted_via"
+ ],
+ "fields": [
+  {"fieldname": "nomination", "fieldtype": "Link", "label": "Nomination", "options": "Nomination", "reqd": 1, "in_list_view": 1, "search_index": 1},
+  {"fieldname": "award", "fieldtype": "Link", "label": "Award", "options": "Award", "reqd": 1, "in_list_view": 1, "search_index": 1, "in_standard_filter": 1},
+  {"fieldname": "business_name", "fieldtype": "Data", "label": "Business Name", "in_list_view": 1, "in_standard_filter": 1},
+  {"fieldname": "contact_person_name", "fieldtype": "Data", "label": "Contact Person Name", "in_list_view": 1},
+  {"fieldname": "voted_at", "fieldtype": "Datetime", "label": "Voted At", "read_only": 1},
+  {"fieldname": "col_audit", "fieldtype": "Column Break"},
+  {"fieldname": "voter_phone_hash", "fieldtype": "Data", "label": "Voter Phone Hash", "reqd": 1, "search_index": 1, "read_only": 1},
+  {"fieldname": "voted_from_ip", "fieldtype": "Data", "label": "Voted From IP", "read_only": 1},
+  {"fieldname": "voted_via", "fieldtype": "Select", "label": "Voted Via", "options": "Campaign URL\nAward URL", "read_only": 1}
+ ],
+ "links": [],
+ "modified": "2026-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nominations",
+ "name": "Vote",
+ "owner": "Administrator",
+ "permissions": [
+  {"create": 0, "delete": 0, "email": 0, "export": 1, "print": 0, "read": 1, "report": 1, "role": "System Manager", "share": 0, "write": 0}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

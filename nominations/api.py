@@ -410,6 +410,9 @@ def submit_nomination(
 # 4.6 submit_vote
 # ---------------------------------------------------------------------------
 
+_VOTE_CATEGORIES = {"Farmer", "Pollen Officer", "Technician", "Back Office", "Factory", "Management"}
+
+
 @frappe.whitelist(allow_guest=True)
 @rate_limit(key="verification_token", limit=3, seconds=600)
 def submit_vote(
@@ -417,6 +420,7 @@ def submit_vote(
 	nomination_id: str,
 	business_name: str,
 	contact_person_name: str,
+	category: str,
 	via: str = "campaign",
 ):
 	payload = security.verify_token(verification_token)
@@ -425,10 +429,13 @@ def submit_vote(
 
 	business_name = (business_name or "").strip()
 	contact_person_name = (contact_person_name or "").strip()
+	category = (category or "").strip()
 	if not business_name:
 		frappe.throw(_("Business name is required."))
 	if not contact_person_name:
 		frappe.throw(_("Contact person name is required."))
+	if category not in _VOTE_CATEGORIES:
+		frappe.throw(_("Please select a valid category."))
 
 	nomination = frappe.db.get_value(
 		"Nomination",
@@ -461,6 +468,7 @@ def submit_vote(
 				"award": nomination.award,
 				"business_name": business_name,
 				"contact_person_name": contact_person_name,
+				"category": category,
 				"voter_phone_hash": payload.get("phone_hash"),
 				"voted_from_ip": _client_ip(),
 				"voted_via": voted_via,

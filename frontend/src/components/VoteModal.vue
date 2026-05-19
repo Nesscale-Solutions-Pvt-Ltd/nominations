@@ -18,6 +18,12 @@
           v-model="contactPersonName"
           placeholder="Full name"
         />
+        <FormControl
+          type="select"
+          label="Category"
+          v-model="category"
+          :options="categoryOptions"
+        />
         <div>
           <label class="block text-xs text-gray-600 mb-1.5">Mobile No (one vote per award)</label>
           <PhoneInput v-model="phone" :default-country="defaultCountry" />
@@ -75,8 +81,19 @@ function close() { emit('close') }
 const phone = ref('')
 const businessName = ref('')
 const contactPersonName = ref('')
+const category = ref('')
 const busy = ref(false)
 const error = ref('')
+
+const categoryOptions = [
+  { label: 'Select a category', value: '' },
+  { label: 'Farmer', value: 'Farmer' },
+  { label: 'Pollen Officer', value: 'Pollen Officer' },
+  { label: 'Technician', value: 'Technician' },
+  { label: 'Back Office', value: 'Back Office' },
+  { label: 'Factory', value: 'Factory' },
+  { label: 'Management', value: 'Management' },
+]
 
 const otpOpen = ref(false)
 const otpId = ref('')
@@ -85,7 +102,8 @@ const phoneMasked = ref('')
 const canSubmit = computed(() =>
   phone.value &&
   businessName.value.trim() &&
-  contactPersonName.value.trim()
+  contactPersonName.value.trim() &&
+  category.value
 )
 
 watch(() => props.open, (v) => {
@@ -93,6 +111,7 @@ watch(() => props.open, (v) => {
     phone.value = ''
     businessName.value = ''
     contactPersonName.value = ''
+    category.value = ''
     error.value = ''
   }
 })
@@ -124,6 +143,7 @@ async function onVerified(token) {
       nomination_id: props.target?.finalist?.name,
       business_name: businessName.value,
       contact_person_name: contactPersonName.value,
+      category: category.value,
       via: props.via,
     })
     otpOpen.value = false

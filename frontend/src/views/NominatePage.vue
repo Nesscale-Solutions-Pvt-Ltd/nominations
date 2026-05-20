@@ -17,10 +17,10 @@
         <div>
           <h2 class="text-lg font-semibold text-gray-900 mb-3">Pick an award to nominate for</h2>
           <div class="grid gap-3 sm:grid-cols-2">
-            <button
+            <router-link
               v-for="a in awards"
               :key="a.slug"
-              @click="open(a)"
+              :to="{ name: 'nominate-award', params: { slug, awardSlug: a.slug } }"
               class="group text-left bg-white border border-gray-200 rounded-xl p-4 hover:border-brand hover:shadow-md transition focus:outline-none focus:ring-2 focus:ring-brand"
             >
               <div class="flex items-start gap-3">
@@ -36,28 +36,17 @@
                 </div>
                 <FeatherIcon name="arrow-right" class="h-4 w-4 text-gray-400 group-hover:text-brand mt-1" />
               </div>
-            </button>
+            </router-link>
           </div>
         </div>
       </div>
     </main>
-
-    <NominateModal
-      :open="modalOpen"
-      :awards="awards"
-      :preset-award="presetAward"
-      :campaign-slug="slug"
-      :default-country="settings?.default_country_code"
-      @close="modalOpen = false"
-      @submitted="onSubmitted"
-    />
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import CampaignHeader from '../components/CampaignHeader.vue'
-import NominateModal from '../components/NominateModal.vue'
 import api from '../api.js'
 import { applyBrand, toast } from '../store.js'
 
@@ -67,8 +56,6 @@ const loading = ref(true)
 const campaign = ref(null)
 const awards = ref([])
 const settings = ref(null)
-const modalOpen = ref(false)
-const presetAward = ref(null)
 
 const stateMessage = computed(() => {
   const s = campaign.value?.status
@@ -90,13 +77,6 @@ async function load() {
     toast(e.message, 'error')
   }
   loading.value = false
-}
-
-function open(a) { presetAward.value = a.slug; modalOpen.value = true }
-
-function onSubmitted() {
-  modalOpen.value = false
-  toast('Thank you! Your nomination has been received.', 'success')
 }
 
 onMounted(load)

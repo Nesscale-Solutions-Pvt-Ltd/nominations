@@ -27,9 +27,18 @@
           :can-vote="campaign.status === 'Voting Open'"
           :show-results="true"
           @vote="onVote"
+          @details="onDetails"
         />
       </template>
     </main>
+
+    <NomineeDetailsModal
+      :open="detailsOpen"
+      :nomination-id="detailsId"
+      :can-vote="campaign?.status === 'Voting Open'"
+      @close="detailsOpen = false"
+      @vote="onDetailsVote"
+    />
 
     <VoteModal
       :open="voteOpen"
@@ -48,6 +57,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import CampaignHeader from '../components/CampaignHeader.vue'
 import AwardCard from '../components/AwardCard.vue'
 import VoteModal from '../components/VoteModal.vue'
+import NomineeDetailsModal from '../components/NomineeDetailsModal.vue'
 import CountdownTimer from '../components/CountdownTimer.vue'
 import api from '../api.js'
 import { applyBrand, toast } from '../store.js'
@@ -60,6 +70,8 @@ const award = ref(null)
 const settings = ref(null)
 const voteOpen = ref(false)
 const voteTarget = ref(null)
+const detailsOpen = ref(false)
+const detailsId = ref('')
 let timer = null
 
 const stateMessage = computed(() => {
@@ -85,6 +97,8 @@ async function load() {
 
 function onVote(payload) { voteTarget.value = payload; voteOpen.value = true }
 function onVoted() { voteOpen.value = false; load() }
+function onDetails(payload) { detailsId.value = payload.finalist?.name; detailsOpen.value = true }
+function onDetailsVote(payload) { detailsOpen.value = false; onVote(payload) }
 
 onMounted(async () => {
   await load()

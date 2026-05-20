@@ -13,6 +13,7 @@ declare module 'vue' {
     CountdownTimer: typeof import('./src/components/CountdownTimer.vue')['default']
     NominateModal: typeof import('./src/components/NominateModal.vue')['default']
     NomineeCard: typeof import('./src/components/NomineeCard.vue')['default']
+    NomineeDetailsModal: typeof import('./src/components/NomineeDetailsModal.vue')['default']
     OtpModal: typeof import('./src/components/OtpModal.vue')['default']
     PhoneInput: typeof import('./src/components/PhoneInput.vue')['default']
     ResultsBar: typeof import('./src/components/ResultsBar.vue')['default']

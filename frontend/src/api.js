@@ -48,6 +48,7 @@ function safeParseServerMessages(raw) {
 export default {
   getCampaign: (slug) => call('nominations.api.get_campaign', { params: { slug } }),
   getAward: (campaign_slug, award_slug) => call('nominations.api.get_award', { params: { campaign_slug, award_slug } }),
+  getNominee: (nomination_id) => call('nominations.api.get_nominee', { params: { nomination_id } }),
   requestOtp: (body) => call('nominations.api.request_otp', { body }),
   verifyOtp: (body) => call('nominations.api.verify_otp', { body }),
   submitNomination: (body) => call('nominations.api.submit_nomination', { body }),

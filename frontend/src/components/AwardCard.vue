@@ -5,11 +5,14 @@
         v-if="award.icon_or_image"
         :src="award.icon_or_image"
         :alt="award.award_name"
-        class="flex-shrink-0 rounded-lg"
+        class="flex-shrink-0 rounded-lg w-16 h-16 object-cover bg-gray-50"
       />
       <div class="flex-1 min-w-0">
         <h2 class="text-base sm:text-lg font-semibold text-gray-900">{{ award.award_name }}</h2>
-        <p class="text-sm text-gray-600 mt-1" v-if="award.description">{{ award.description }}</p>
+        <p
+          v-if="descriptionText"
+          class="text-sm text-gray-600 mt-1 line-clamp-2"
+        >{{ descriptionText }}</p>
       </div>
       <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
         <Badge
@@ -38,6 +41,7 @@
         :show-results="showResults"
         :is-winner="award.winner_nomination === f.name"
         @vote="$emit('vote', { award, finalist: f })"
+        @details="$emit('details', { award, finalist: f })"
       />
     </div>
   </section>
@@ -51,8 +55,16 @@ const props = defineProps({
   canVote: { type: Boolean, default: false },
   showResults: { type: Boolean, default: true },
 })
-defineEmits(['vote'])
+defineEmits(['vote', 'details'])
 const totalVotes = computed(() =>
   (props.award.finalists || []).reduce((s, f) => s + (f.vote_count || 0), 0)
 )
+const descriptionText = computed(() => {
+  const raw = props.award?.description || ''
+  if (!raw) return ''
+  // Strip HTML for the card preview; full HTML is shown on the award detail page.
+  const tmp = document.createElement('div')
+  tmp.innerHTML = raw
+  return (tmp.textContent || tmp.innerText || '').replace(/\s+/g, ' ').trim()
+})
 </script>

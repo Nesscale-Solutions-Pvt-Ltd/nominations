@@ -555,3 +555,253 @@ def upload_nominee_photo():
 		}
 	).insert(ignore_permissions=True)
 	return {"file_url": file_doc.file_url, "file_name": file_doc.file_name}
+
+
+# ---------------------------------------------------------------------------
+# 4.8 get_nominee — public, single finalist details for the vote-detail view
+# ---------------------------------------------------------------------------
+
+@frappe.whitelist(allow_guest=True)
+def get_nominee(nomination_id: str):
+	row = frappe.db.get_value(
+		"Nomination",
+		nomination_id,
+		[
+			"name",
+			"campaign",
+			"award",
+			"nominee_name",
+			"nominee_photo",
+			"justification",
+			"vote_count",
+			"is_finalist",
+			"status",
+		],
+		as_dict=True,
+	)
+	if not row or not row.is_finalist or row.status != "Submitted":
+		frappe.local.response.http_status_code = 404
+		frappe.throw(_("Nominee not found."))
+	award = frappe.db.get_value(
+		"Award", row.award, ["award_name", "slug", "icon_or_image"], as_dict=True
+	)
+	return {"finalist": row, "award": award}
+
+
+# ---------------------------------------------------------------------------
+# 4.9 Admin / dashboard endpoints (login required)
+# ---------------------------------------------------------------------------
+
+def _require_manager():
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Login required."), frappe.PermissionError)
+	roles = set(frappe.get_roles(frappe.session.user))
+	if not (roles & {"System Manager", "Nominations Manager"}):
+		frappe.throw(_("Not permitted."), frappe.PermissionError)
+
+
+@frappe.whitelist()
+def get_award_voters(award: str, limit: int = 200):
+	_require_manager()
+	rows = frappe.get_all(
+		"Vote",
+		filters={"award": award},
+		fields=[
+			"name",
+			"nomination",
+			"business_name",
+			"contact_person_name",
+			"category",
+			"voted_at",
+			"voted_via",
+		],
+		order_by="voted_at DESC",
+		limit=cint(limit) or 200,
+	)
+	nom_names = list({r.nomination for r in rows if r.nomination})
+	nominees = {}
+	if nom_names:
+		for n in frappe.get_all(
+			"Nomination",
+			filters={"name": ("in", nom_names)},
+			fields=["name", "nominee_name"],
+		):
+			nominees[n.name] = n.nominee_name
+	for r in rows:
+		r["nominee_name"] = nominees.get(r.nomination, "")
+	total = frappe.db.count("Vote", {"award": award})
+	return {"voters": rows, "total": total}
+
+
+@frappe.whitelist()
+def get_campaign_dashboard(campaign: str):
+	_require_manager()
+	camp = frappe.db.get_value(
+		"Campaign",
+		campaign,
+		[
+			"name",
+			"title",
+			"status",
+			"total_nominations",
+			"total_votes",
+			"nomination_start",
+			"nomination_end",
+			"voting_start",
+			"voting_end",
+		],
+		as_dict=True,
+	)
+	if not camp:
+		frappe.throw(_("Campaign not found."))
+
+	awards = frappe.get_all(
+		"Award",
+		filters={"campaign": campaign},
+		fields=["name", "award_name", "slug", "sequence", "winner_nomination"],
+		order_by="sequence ASC, award_name ASC",
+	)
+	for a in awards:
+		a["total_votes"] = frappe.db.sql(
+			"SELECT COALESCE(SUM(vote_count),0) FROM `tabNomination` "
+			"WHERE award=%s AND is_finalist=1 AND status='Submitted'",
+			(a.name,),
+		)[0][0] or 0
+		a["finalists"] = frappe.get_all(
+			"Nomination",
+			filters={"award": a.name, "is_finalist": 1, "status": "Submitted"},
+			fields=["name", "nominee_name", "nominee_photo", "vote_count"],
+			order_by="vote_count DESC, submitted_at ASC",
+		)
+		a["nomination_count"] = frappe.db.count("Nomination", {"award": a.name})
+
+	# Category breakdown across the campaign
+	cat_rows = frappe.db.sql(
+		"""
+		SELECT v.category, COUNT(*) AS c
+		FROM `tabVote` v JOIN `tabNomination` n ON v.nomination = n.name
+		WHERE n.campaign = %s
+		GROUP BY v.category ORDER BY c DESC
+		""",
+		(campaign,),
+		as_dict=True,
+	)
+
+	recent_votes = frappe.db.sql(
+		"""
+		SELECT v.business_name, v.contact_person_name, v.category, v.voted_at,
+		       n.nominee_name, a.award_name
+		FROM `tabVote` v
+		JOIN `tabNomination` n ON v.nomination = n.name
+		JOIN `tabAward` a ON v.award = a.name
+		WHERE n.campaign = %s
+		ORDER BY v.voted_at DESC LIMIT 25
+		""",
+		(campaign,),
+		as_dict=True,
+	)
+
+	return {
+		"campaign": camp,
+		"awards": awards,
+		"categories": cat_rows,
+		"recent_votes": recent_votes,
+	}
+
+
+@frappe.whitelist()
+def list_active_campaigns():
+	_require_manager()
+	return frappe.get_all(
+		"Campaign",
+		filters={"status": ("!=", "Draft")},
+		fields=["name", "title", "status"],
+		order_by="modified DESC",
+	)
+
+
+@frappe.whitelist()
+def get_campaign_awards(campaign: str):
+	"""List of awards for a campaign with quick stats — used by the Campaign Awards tab."""
+	_require_manager()
+	awards = frappe.get_all(
+		"Award",
+		filters={"campaign": campaign},
+		fields=[
+			"name",
+			"award_name",
+			"slug",
+			"sequence",
+			"icon_or_image",
+			"winner_nomination",
+			"total_finalists",
+		],
+		order_by="sequence ASC, award_name ASC",
+	)
+	for a in awards:
+		a["nomination_count"] = frappe.db.count("Nomination", {"award": a.name})
+		a["finalist_count"] = frappe.db.count(
+			"Nomination", {"award": a.name, "is_finalist": 1, "status": "Submitted"}
+		)
+		a["vote_count"] = frappe.db.count("Vote", {"award": a.name})
+	return awards
+
+
+@frappe.whitelist()
+def get_award_nominations(award: str, finalists_only: int = 0):
+	"""All nominations for an award with finalist flag."""
+	_require_manager()
+	filters = {"award": award}
+	if cint(finalists_only):
+		filters["is_finalist"] = 1
+	rows = frappe.get_all(
+		"Nomination",
+		filters=filters,
+		fields=[
+			"name",
+			"nominee_name",
+			"nominee_photo",
+			"justification",
+			"vote_count",
+			"is_finalist",
+			"status",
+			"submitted_at",
+		],
+		order_by="is_finalist DESC, vote_count DESC, submitted_at DESC",
+	)
+	return {
+		"nominations": rows,
+		"total": frappe.db.count("Nomination", {"award": award}),
+		"finalists": frappe.db.count(
+			"Nomination", {"award": award, "is_finalist": 1, "status": "Submitted"}
+		),
+	}
+
+
+@frappe.whitelist()
+def set_nomination_finalist(nomination: str, value: int):
+	"""Toggle the is_finalist flag on a Nomination."""
+	_require_manager()
+	if not frappe.db.exists("Nomination", nomination):
+		frappe.throw(_("Nomination not found."))
+	frappe.db.set_value("Nomination", nomination, "is_finalist", 1 if cint(value) else 0)
+	return {"name": nomination, "is_finalist": 1 if cint(value) else 0}
+
+
+@frappe.whitelist()
+def get_award_votes_by_category(award: str):
+	"""Vote totals grouped by Vote.category for one Award."""
+	_require_manager()
+	rows = frappe.db.sql(
+		"""
+		SELECT COALESCE(NULLIF(TRIM(category), ''), '—') AS category, COUNT(*) AS c
+		FROM `tabVote`
+		WHERE award = %s
+		GROUP BY category
+		ORDER BY c DESC
+		""",
+		(award,),
+		as_dict=True,
+	)
+	total = sum(r.c for r in rows) or 0
+	return {"categories": rows, "total": total}

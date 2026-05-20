@@ -7,11 +7,11 @@
       v-if="finalist.nominee_photo"
       :src="finalist.nominee_photo"
       :alt="finalist.nominee_name"
-      class="flex-shrink-0 rounded-lg"
+      class="flex-shrink-0 rounded-lg w-16 h-16 sm:w-20 sm:h-20 object-cover bg-gray-50"
     />
     <div
       v-else
-      class="flex-shrink-0 flex items-center justify-center rounded-lg bg-gray-100 text-gray-500 font-semibold text-sm select-none w-10 h-10"
+      class="flex-shrink-0 flex items-center justify-center rounded-lg bg-gray-100 text-gray-500 font-semibold text-lg select-none w-16 h-16 sm:w-20 sm:h-20"
     >
       {{ finalist.nominee_name?.[0]?.toUpperCase() }}
     </div>
@@ -36,8 +36,12 @@
       <div class="mt-3" v-if="showResults">
         <ResultsBar :count="finalist.vote_count" :percentage="finalist.vote_percentage" />
       </div>
-      <div class="mt-3" v-if="canVote">
-        <Button variant="solid" theme="gray" @click="$emit('vote', finalist)" class="!bg-brand hover:!opacity-90">
+      <div class="mt-3 flex gap-2 flex-wrap">
+        <Button variant="subtle" theme="gray" @click="$emit('details', finalist)">
+          <template #prefix><FeatherIcon name="info" class="h-4 w-4" /></template>
+          View details
+        </Button>
+        <Button v-if="canVote" variant="solid" theme="gray" @click="$emit('vote', finalist)" class="!bg-brand hover:!opacity-90">
           <template #prefix><FeatherIcon name="check-circle" class="h-4 w-4" /></template>
           Vote
         </Button>
@@ -57,6 +61,6 @@ defineProps({
   showResults: { type: Boolean, default: true },
   isWinner: { type: Boolean, default: false },
 })
-defineEmits(['vote'])
+defineEmits(['vote', 'details'])
 const expanded = ref(false)
 </script>

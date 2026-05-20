@@ -33,6 +33,17 @@ class Nomination(Document):
 			"UPDATE `tabCampaign` SET total_nominations = total_nominations + 1 WHERE name=%s",
 			(self.campaign,),
 		)
+		frappe.publish_realtime(
+			event="nominations:nomination",
+			message={
+				"campaign": self.campaign,
+				"award": self.award,
+				"nomination": self.name,
+				"nominee_name": self.nominee_name,
+				"submitted_at": str(self.submitted_at),
+			},
+			after_commit=True,
+		)
 
 	def on_update(self):
 		# Keep award.total_finalists in sync

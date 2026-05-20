@@ -23,7 +23,9 @@
   "voting_public_url",
   "sec_stats",
   "total_nominations",
-  "total_votes"
+  "total_votes",
+  "tab_awards",
+  "awards_html"
  ],
  "fields": [
   {"fieldname": "title", "fieldtype": "Data", "label": "Title", "reqd": 1, "in_list_view": 1},
@@ -43,7 +45,9 @@
   {"fieldname": "voting_public_url", "fieldtype": "Data", "label": "Voting Public URL", "read_only": 1},
   {"fieldname": "sec_stats", "fieldtype": "Section Break", "label": "Stats"},
   {"fieldname": "total_nominations", "fieldtype": "Int", "label": "Total Nominations", "read_only": 1, "default": 0},
-  {"fieldname": "total_votes", "fieldtype": "Int", "label": "Total Votes", "read_only": 1, "default": 0}
+  {"fieldname": "total_votes", "fieldtype": "Int", "label": "Total Votes", "read_only": 1, "default": 0},
+  {"fieldname": "tab_awards", "fieldtype": "Tab Break", "label": "Awards"},
+  {"fieldname": "awards_html", "fieldtype": "HTML", "label": "Awards List"}
  ],
  "links": [],
  "modified": "2026-01-01 00:00:00.000000",

@@ -17,7 +17,11 @@
   "sec_results",
   "winner_nomination",
   "public_voting_url",
-  "total_finalists"
+  "total_finalists",
+  "tab_nominations",
+  "nominations_html",
+  "tab_votes",
+  "votes_html"
  ],
  "fields": [
   {"fieldname": "campaign", "fieldtype": "Link", "label": "Campaign", "options": "Campaign", "reqd": 1, "in_list_view": 1, "in_standard_filter": 1},
@@ -26,12 +30,16 @@
   {"fieldname": "sequence", "fieldtype": "Int", "label": "Display Sequence", "default": 0},
   {"fieldname": "max_finalists", "fieldtype": "Int", "label": "Max Finalists", "default": 5, "description": "Soft limit — admin gets a warning if exceeded."},
   {"fieldname": "col_meta", "fieldtype": "Column Break"},
-  {"fieldname": "description", "fieldtype": "Small Text", "label": "Description"},
+  {"fieldname": "description", "fieldtype": "Text Editor", "label": "Description"},
   {"fieldname": "icon_or_image", "fieldtype": "Attach Image", "label": "Icon or Image"},
   {"fieldname": "sec_results", "fieldtype": "Section Break", "label": "Results"},
   {"fieldname": "winner_nomination", "fieldtype": "Link", "label": "Winner Nomination", "options": "Nomination", "read_only": 1},
   {"fieldname": "public_voting_url", "fieldtype": "Data", "label": "Public Voting URL", "read_only": 1},
-  {"fieldname": "total_finalists", "fieldtype": "Int", "label": "Total Finalists", "read_only": 1, "default": 0}
+  {"fieldname": "total_finalists", "fieldtype": "Int", "label": "Total Finalists", "read_only": 1, "default": 0},
+  {"fieldname": "tab_nominations", "fieldtype": "Tab Break", "label": "Nominations"},
+  {"fieldname": "nominations_html", "fieldtype": "HTML", "label": "Nominations List"},
+  {"fieldname": "tab_votes", "fieldtype": "Tab Break", "label": "Votes"},
+  {"fieldname": "votes_html", "fieldtype": "HTML", "label": "Votes List"}
  ],
  "links": [],
  "modified": "2026-01-01 00:00:00.000000",

@@ -32,7 +32,7 @@
                 />
                 <div class="flex-1 min-w-0">
                   <div class="font-semibold text-gray-900 group-hover:text-brand transition">{{ a.award_name }}</div>
-                  <div class="text-sm text-gray-500 mt-0.5 line-clamp-2" v-if="a.description">{{ a.description }}</div>
+                  <div class="text-sm text-gray-500 mt-0.5 line-clamp-2" v-if="stripHtml(a.description)">{{ stripHtml(a.description) }}</div>
                 </div>
                 <FeatherIcon name="arrow-right" class="h-4 w-4 text-gray-400 group-hover:text-brand mt-1" />
               </div>
@@ -56,6 +56,13 @@ const loading = ref(true)
 const campaign = ref(null)
 const awards = ref([])
 const settings = ref(null)
+
+function stripHtml(raw) {
+  if (!raw) return ''
+  const tmp = document.createElement('div')
+  tmp.innerHTML = raw
+  return (tmp.textContent || tmp.innerText || '').replace(/\s+/g, ' ').trim()
+}
 
 const stateMessage = computed(() => {
   const s = campaign.value?.status

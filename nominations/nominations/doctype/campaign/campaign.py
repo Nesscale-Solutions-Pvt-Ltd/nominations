@@ -14,6 +14,15 @@ VALID_TRANSITIONS = {
 	"Closed": set(),
 }
 
+# Reverse transitions allowed via the Reopen action (Nominations Manager only).
+# Used when a campaign moved forward by mistake and needs to be rolled back.
+REOPEN_TRANSITIONS = {
+	"Nominations Open": {"Draft"},
+	"Shortlisting": {"Nominations Open"},
+	"Voting Open": {"Shortlisting", "Nominations Open"},
+	"Closed": {"Voting Open", "Shortlisting", "Nominations Open"},
+}
+
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
@@ -55,6 +64,15 @@ class Campaign(Document):
 			return
 		if old.status == self.status:
 			return
+
+		# Allow a reverse (reopen) transition when explicitly requested via the
+		# reopen() action. The flag is set on the in-memory doc only.
+		if self.flags.allow_reopen:
+			allowed_reverse = REOPEN_TRANSITIONS.get(old.status, set())
+			if self.status in allowed_reverse:
+				return
+			frappe.throw(_("Cannot reopen campaign from {0} to {1}.").format(old.status, self.status))
+
 		allowed = VALID_TRANSITIONS.get(old.status, set())
 		if self.status not in allowed:
 			frappe.throw(_("Cannot transition status from {0} to {1}.").format(old.status, self.status))
@@ -107,6 +125,33 @@ class Campaign(Document):
 	@frappe.whitelist()
 	def transition_to(self, new_status: str):
 		self.status = new_status
+		self.save()
+		return {"status": self.status}
+
+	@frappe.whitelist()
+	def reopen(self, target_status: str = "Nominations Open"):
+		"""Roll a campaign back to an earlier status (e.g. when wrong dates
+		caused it to advance to Shortlisting by mistake).
+
+		Restricted to users with the "Nominations Manager" role.
+		"""
+		roles = frappe.get_roles(frappe.session.user)
+		if "Nominations Manager" not in roles and "System Manager" not in roles:
+			frappe.throw(_("Only Nominations Manager can reopen a campaign."))
+
+		allowed = REOPEN_TRANSITIONS.get(self.status, set())
+		if target_status not in allowed:
+			frappe.throw(
+				_("Cannot reopen campaign from {0} to {1}.").format(self.status, target_status)
+			)
+
+		# If we are leaving Closed, clear computed winners so they are not stale.
+		if self.status == "Closed":
+			for a in frappe.get_all("Award", {"campaign": self.name}, ["name"]):
+				frappe.db.set_value("Award", a.name, "winner_nomination", None)
+
+		self.flags.allow_reopen = True
+		self.status = target_status
 		self.save()
 		return {"status": self.status}
 

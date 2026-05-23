@@ -92,6 +92,7 @@ after_install = "nominations.install.after_install"
 website_route_rules = [
 	{"from_route": "/nominate/<path:app_path>", "to_route": "nominations"},
 	{"from_route": "/vote/<path:app_path>", "to_route": "nominations"},
+	{"from_route": "/finalist/<path:app_path>", "to_route": "nominations"},
 ]
 
 # Desk JS for admin buttons
@@ -99,6 +100,7 @@ doctype_js = {
 	"Campaign": "public/js/campaign.js",
 	"Award": "public/js/award.js",
 	"Nomination": "public/js/nomination.js",
+	"Nomination Finalist": "public/js/nomination_finalist.js",
 }
 
 # Uninstallation

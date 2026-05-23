@@ -805,3 +805,273 @@ def get_award_votes_by_category(award: str):
 	)
 	total = sum(r.c for r in rows) or 0
 	return {"categories": rows, "total": total}
+
+
+# ---------------------------------------------------------------------------
+# Nomination Finalist — manager actions
+# ---------------------------------------------------------------------------
+
+@frappe.whitelist()
+def regenerate_finalist_token(name: str):
+	_require_manager()
+	from nominations.nominations.doctype.nomination_finalist.nomination_finalist import (
+		regenerate_token,
+	)
+	return {"public_url": regenerate_token(name)}
+
+
+@frappe.whitelist()
+def mark_finalist_sent(name: str):
+	_require_manager()
+	doc = frappe.get_doc("Nomination Finalist", name)
+	doc.mark_sent()
+	return {"status": doc.status, "sent_at": doc.sent_at}
+
+
+@frappe.whitelist()
+def mark_finalist_evaluated(name: str):
+	_require_manager()
+	doc = frappe.get_doc("Nomination Finalist", name)
+	doc.mark_evaluated()
+	return {"status": doc.status, "evaluated_at": doc.evaluated_at}
+
+
+@frappe.whitelist()
+def push_finalist_to_voting(name: str):
+	"""Create a `Nomination` (is_finalist=1) for this finalist so it appears in voting."""
+	_require_manager()
+	doc = frappe.get_doc("Nomination Finalist", name)
+	nomination_name = doc.push_to_voting()
+	return {"nomination": nomination_name}
+
+
+# ---------------------------------------------------------------------------
+# Nomination Finalist — public submission endpoints (token-gated, no login)
+# ---------------------------------------------------------------------------
+
+_ALLOWED_FINALIST_TYPES = {
+	"image/jpeg", "image/png", "image/webp", "image/gif",
+	"video/mp4", "video/webm", "video/quicktime",
+	"application/pdf",
+	"application/msword",
+	"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+	"application/vnd.ms-excel",
+	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+	"application/vnd.ms-powerpoint",
+	"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+	"text/plain",
+}
+_MAX_FINALIST_BYTES = 100 * 1024 * 1024  # 100 MB per file
+
+
+def _classify_file_type(content_type: str) -> str:
+	ct = (content_type or "").lower()
+	if ct.startswith("image/"):
+		return "Image"
+	if ct.startswith("video/"):
+		return "Video"
+	if ct in (
+		"application/pdf",
+		"application/msword",
+		"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+		"application/vnd.ms-excel",
+		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		"application/vnd.ms-powerpoint",
+		"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+		"text/plain",
+	):
+		return "Document"
+	return "Other"
+
+
+def _get_finalist_by_token(token: str):
+	if not token:
+		frappe.local.response.http_status_code = 404
+		frappe.throw(_("Submission link is invalid."))
+	name = frappe.db.get_value("Nomination Finalist", {"submission_token": token}, "name")
+	if not name:
+		frappe.local.response.http_status_code = 404
+		frappe.throw(_("Submission link is invalid or has been revoked."))
+	return frappe.get_doc("Nomination Finalist", name)
+
+
+def _finalist_locked(status: str) -> bool:
+	# Once the nominee submits, the public page becomes read-only.
+	return status in ("Submitted", "Evaluated", "Winner", "Not Selected")
+
+
+def _parse_files(raw: str | None) -> list[dict]:
+	import json as _json
+	if not raw:
+		return []
+	try:
+		data = _json.loads(raw)
+		return data if isinstance(data, list) else []
+	except Exception:
+		return []
+
+
+def _dump_files(items: list[dict]) -> str:
+	import json as _json
+	return _json.dumps(items)
+
+
+@frappe.whitelist(allow_guest=True)
+def get_finalist_submission(token: str):
+	"""Public read of the finalist submission form (criteria + existing responses)."""
+	doc = _get_finalist_by_token(token)
+	campaign = frappe.db.get_value(
+		"Campaign", doc.campaign, ["title", "slug", "cover_image", "description"], as_dict=True
+	) or frappe._dict()
+	award = frappe.db.get_value(
+		"Award", doc.award, ["award_name", "slug", "icon_or_image", "description"], as_dict=True
+	) or frappe._dict()
+
+	# NOTE: max_marks / marks_awarded / evaluator_comments are deliberately
+	# omitted — the public submission page must not reveal evaluation weights.
+	criteria = [
+		{
+			"name": row.name,
+			"idx": row.idx,
+			"criteria_name": row.criteria_name,
+			"description": row.description,
+			"response_text": row.response_text or "",
+			"response_files": _parse_files(row.response_files),
+		}
+		for row in (doc.criteria or [])
+	]
+	return {
+		"finalist": {
+			"name": doc.name,
+			"nominee_name": doc.nominee_name,
+			"nominee_photo": doc.nominee_photo,
+			"organization": doc.organization,
+			"designation": doc.designation,
+			"status": doc.status,
+			"intro_message": doc.intro_message,
+			"locked": _finalist_locked(doc.status),
+		},
+		"campaign": campaign,
+		"award": award,
+		"criteria": criteria,
+		"settings": _public_settings(),
+	}
+
+
+@frappe.whitelist(allow_guest=True)
+@rate_limit(key="token", limit=60, seconds=600)
+def save_finalist_submission(token: str, responses=None, submit: int = 0):
+	"""Save nominee's responses against each criteria.
+
+	``responses`` is a list of ``{criteria_row, response_text}``
+	(also accepted as a JSON string for form-encoded clients). When ``submit`` is
+	truthy, the finalist's status is moved to ``Submitted``.
+	"""
+	import json as _json
+
+	doc = _get_finalist_by_token(token)
+	if _finalist_locked(doc.status):
+		frappe.throw(_("This submission has already been evaluated and can no longer be edited."))
+
+	if isinstance(responses, str):
+		try:
+			responses = _json.loads(responses)
+		except Exception:
+			frappe.throw(_("Invalid responses payload."))
+	responses = responses or []
+
+	by_row = {r.name: r for r in (doc.criteria or [])}
+	for entry in responses:
+		row_name = (entry or {}).get("criteria_row")
+		row = by_row.get(row_name)
+		if not row:
+			continue
+		text = (entry.get("response_text") or "").strip()
+		if len(text) > 20000:
+			text = text[:20000]
+		row.response_text = text
+
+	if doc.status == "Draft":
+		doc.status = "Sent"
+	if doc.status in ("Sent", "In Progress"):
+		doc.status = "In Progress"
+	if cint(submit):
+		doc.status = "Submitted"
+		doc.submitted_at = now_datetime()
+
+	doc.save(ignore_permissions=True)
+	return {"status": doc.status, "submitted_at": doc.submitted_at}
+
+
+@frappe.whitelist(allow_guest=True)
+@rate_limit(key="token", limit=60, seconds=600)
+def upload_finalist_attachment(token: str, criteria_row: str, caption: str | None = None):
+	"""Upload a single file and append it to the given criteria row's files list."""
+	doc = _get_finalist_by_token(token)
+	if _finalist_locked(doc.status):
+		frappe.throw(_("This submission has already been evaluated and can no longer be edited."))
+
+	row = next((r for r in (doc.criteria or []) if r.name == criteria_row), None)
+	if not row:
+		frappe.throw(_("Criteria row not found."))
+
+	files = frappe.request.files
+	if not files or "file" not in files:
+		frappe.throw(_("No file uploaded."))
+	f = files["file"]
+	filename = (f.filename or "upload").rsplit("/", 1)[-1]
+	content_type = (f.mimetype or "").lower()
+	if content_type not in _ALLOWED_FINALIST_TYPES:
+		frappe.throw(_("This file type is not allowed."))
+	content = f.read()
+	if not content:
+		frappe.throw(_("Uploaded file is empty."))
+	if len(content) > _MAX_FINALIST_BYTES:
+		frappe.throw(_("File must be 100 MB or smaller."))
+
+	file_doc = frappe.get_doc(
+		{
+			"doctype": "File",
+			"file_name": filename,
+			"content": content,
+			"is_private": 0,
+			"folder": "Home",
+			"attached_to_doctype": "Nomination Finalist",
+			"attached_to_name": doc.name,
+		}
+	).insert(ignore_permissions=True)
+
+	entry = {
+		"file_url": file_doc.file_url,
+		"file_type": _classify_file_type(content_type),
+		"caption": (caption or "").strip(),
+	}
+	items = _parse_files(row.response_files)
+	items.append(entry)
+	row.response_files = _dump_files(items)
+
+	if doc.status == "Draft":
+		doc.status = "Sent"
+	if doc.status in ("Sent",):
+		doc.status = "In Progress"
+	doc.save(ignore_permissions=True)
+	return {"file": entry, "files": items}
+
+
+@frappe.whitelist(allow_guest=True)
+@rate_limit(key="token", limit=60, seconds=600)
+def delete_finalist_attachment(token: str, criteria_row: str, file_url: str):
+	doc = _get_finalist_by_token(token)
+	if _finalist_locked(doc.status):
+		frappe.throw(_("This submission has already been evaluated and can no longer be edited."))
+	row = next((r for r in (doc.criteria or []) if r.name == criteria_row), None)
+	if not row:
+		frappe.throw(_("Criteria row not found."))
+	items = _parse_files(row.response_files)
+	new_items = [it for it in items if it.get("file_url") != file_url]
+	if len(new_items) == len(items):
+		frappe.throw(_("File not found."))
+	row.response_files = _dump_files(new_items)
+	doc.save(ignore_permissions=True)
+	return {"files": new_items}
+

@@ -1,0 +1,41 @@
+{
+ "actions": [],
+ "creation": "2026-05-23 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "criteria_name",
+  "max_marks",
+  "description",
+  "sec_response",
+  "response_text",
+  "response_files",
+  "sec_eval",
+  "marks_awarded",
+  "evaluator_comments"
+ ],
+ "fields": [
+  {"fieldname": "criteria_name", "fieldtype": "Data", "in_list_view": 1, "label": "Criteria", "reqd": 1, "columns": 3},
+  {"fieldname": "max_marks", "fieldtype": "Int", "in_list_view": 1, "label": "Max Marks", "default": 10, "columns": 1},
+  {"fieldname": "description", "fieldtype": "Small Text", "in_list_view": 1, "label": "Description (shown to nominee)", "columns": 4},
+  {"fieldname": "sec_response", "fieldtype": "Section Break", "label": "Nominee Response"},
+  {"fieldname": "response_text", "fieldtype": "Long Text", "label": "Response Text"},
+  {"fieldname": "response_files", "fieldtype": "Long Text", "label": "Response Files (JSON)", "description": "JSON array of {file_url, file_type, caption}. Managed by the public submission page."},
+  {"fieldname": "sec_eval", "fieldtype": "Section Break", "label": "Evaluation"},
+  {"fieldname": "marks_awarded", "fieldtype": "Int", "label": "Marks Awarded"},
+  {"fieldname": "evaluator_comments", "fieldtype": "Small Text", "label": "Evaluator Comments"}
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-05-23 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Nominations",
+ "name": "Nomination Finalist Criteria",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

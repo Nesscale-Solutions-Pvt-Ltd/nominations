@@ -53,6 +53,33 @@ export default {
   verifyOtp: (body) => call('nominations.api.verify_otp', { body }),
   submitNomination: (body) => call('nominations.api.submit_nomination', { body }),
   submitVote: (body) => call('nominations.api.submit_vote', { body }),
+  getFinalistSubmission: (token) => call('nominations.api.get_finalist_submission', { params: { token } }),
+  saveFinalistSubmission: (body) => call('nominations.api.save_finalist_submission', { body }),
+  deleteFinalistAttachment: (body) => call('nominations.api.delete_finalist_attachment', { body }),
+  uploadFinalistAttachment: async (token, file, { criteria_row, caption } = {}) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('token', token)
+    if (criteria_row) fd.append('criteria_row', criteria_row)
+    if (caption) fd.append('caption', caption)
+    const r = await fetch('/api/method/nominations.api.upload_finalist_attachment', {
+      method: 'POST',
+      headers: {
+        'X-Frappe-CSRF-Token': getCsrfToken() || 'token',
+        'Accept': 'application/json',
+      },
+      body: fd,
+    })
+    let d = null
+    try { d = await r.json() } catch (_) { /* */ }
+    if (!r.ok) {
+      const msg = d?._server_messages
+        ? safeParseServerMessages(d._server_messages)
+        : d?.exception || d?.message || `Upload failed (${r.status})`
+      throw new Error(msg)
+    }
+    return d?.message
+  },
   uploadFile: async (file) => {
     const fd = new FormData()
     fd.append('file', file)

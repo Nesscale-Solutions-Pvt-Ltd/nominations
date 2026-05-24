@@ -29,7 +29,7 @@
         </div>
         <div>
           <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Why they're nominated</h3>
-          <p class="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{{ finalist.justification }}</p>
+          <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="finalist.justification"></div>
         </div>
       </div>
     </template>

@@ -98,7 +98,7 @@
   },
   {
    "fieldname": "justification",
-   "fieldtype": "Long Text",
+   "fieldtype": "Text Editor",
    "label": "Justification",
    "reqd": 1
   },

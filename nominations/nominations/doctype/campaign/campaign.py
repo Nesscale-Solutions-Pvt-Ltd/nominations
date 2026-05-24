@@ -102,11 +102,17 @@ class Campaign(Document):
 		self.voting_public_url = f"{base}/vote/{self.slug}"
 
 	def on_update(self):
-		old = self.get_doc_before_save()
-		if old and old.status != self.status and self.status == "Closed":
-			self.compute_winners()
+		# NOTE: winners are no longer auto-decided when the campaign closes.
+		# Managers mark the winner manually from the Nomination Finalist or
+		# Award form once they've reviewed the votes.
+		return
 
 	def compute_winners(self):
+		"""DEPRECATED — kept for manual/legacy callers; no longer auto-invoked.
+
+		Picks the finalist with the most votes per award. Use the manual
+		``mark_finalist_winner`` flow instead.
+		"""
 		awards = frappe.get_all("Award", {"campaign": self.name}, ["name"])
 		for a in awards:
 			top = frappe.db.sql(

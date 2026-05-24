@@ -837,12 +837,64 @@ def mark_finalist_evaluated(name: str):
 
 
 @frappe.whitelist()
-def push_finalist_to_voting(name: str):
-	"""Create a `Nomination` (is_finalist=1) for this finalist so it appears in voting."""
+def preview_finalist_push(name: str, selection: str | dict | None = None):
+	"""Return a rendered preview of the Nomination payload for the push dialog."""
+	_require_manager()
+	if isinstance(selection, str) and selection.strip():
+		try:
+			selection = frappe.parse_json(selection)
+		except Exception:
+			selection = None
+	doc = frappe.get_doc("Nomination Finalist", name)
+	return doc.preview_push(selection=selection if isinstance(selection, dict) else None)
+
+
+@frappe.whitelist()
+def push_finalist_to_voting(name: str, selection: str | dict | None = None, justification: str | None = None):
+	"""Create a `Nomination` (is_finalist=1) for this finalist so it appears in voting.
+
+	``selection`` is an optional JSON string (or dict) describing which criteria
+	rows and which nominee detail fields to copy into the resulting Nomination.
+	See ``NominationFinalist.push_to_voting`` for the schema.
+
+	``justification`` (HTML) is an optional manager-edited override used in
+	place of the auto-built justification.
+	"""
+	_require_manager()
+	if isinstance(selection, str) and selection.strip():
+		try:
+			selection = frappe.parse_json(selection)
+		except Exception:
+			selection = None
+	doc = frappe.get_doc("Nomination Finalist", name)
+	nomination_name = doc.push_to_voting(
+		selection=selection if isinstance(selection, dict) else None,
+		justification_override=justification or None,
+	)
+	return {"nomination": nomination_name}
+
+
+@frappe.whitelist()
+def mark_finalist_winner(name: str):
+	"""Manually mark a finalist as the winner of its award."""
 	_require_manager()
 	doc = frappe.get_doc("Nomination Finalist", name)
-	nomination_name = doc.push_to_voting()
-	return {"nomination": nomination_name}
+	doc.mark_winner()
+	return {
+		"status": doc.status,
+		"is_winner": doc.is_winner,
+		"award": doc.award,
+		"nomination": doc.nomination,
+	}
+
+
+@frappe.whitelist()
+def unmark_finalist_winner(name: str):
+	"""Reverse a previous winner marking."""
+	_require_manager()
+	doc = frappe.get_doc("Nomination Finalist", name)
+	doc.unmark_winner()
+	return {"status": doc.status, "is_winner": doc.is_winner}
 
 
 # ---------------------------------------------------------------------------

@@ -20,19 +20,10 @@
         <h3 class="font-semibold text-gray-900 truncate">{{ finalist.nominee_name }}</h3>
         <WinnerBadge v-if="isWinner" />
       </div>
-      <p
-        class="text-sm text-gray-600 mt-1 whitespace-pre-line"
-        :class="{ 'line-clamp-2': !expanded }"
-      >
-        {{ finalist.justification }}
-      </p>
-      <button
-        v-if="finalist.justification?.length > 140"
-        @click="expanded = !expanded"
-        class="text-xs font-medium text-brand mt-1 hover:underline"
-      >
-        {{ expanded ? 'Show less' : 'Read more' }}
-      </button>
+      <div
+        class="text-sm text-gray-600 mt-1 prose prose-sm max-w-none line-clamp-2 nominee-card-justification"
+        v-html="justificationPreview"
+      ></div>
       <div class="mt-3" v-if="showResults">
         <ResultsBar :count="finalist.vote_count" :percentage="finalist.vote_percentage" />
       </div>
@@ -51,16 +42,31 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed } from 'vue'
 import ResultsBar from './ResultsBar.vue'
 import WinnerBadge from './WinnerBadge.vue'
 
-defineProps({
+const props = defineProps({
   finalist: { type: Object, required: true },
   canVote: { type: Boolean, default: false },
   showResults: { type: Boolean, default: true },
   isWinner: { type: Boolean, default: false },
 })
 defineEmits(['vote', 'details'])
-const expanded = ref(false)
+
+// Strip <img>/<video>/<iframe> tags from the preview so cards don't show
+// full-sized media; voters see the full content in the details modal.
+const justificationPreview = computed(() => {
+  const raw = props.finalist?.justification || ''
+  if (!raw) return ''
+  return raw.replace(/<(img|video|iframe|source|picture)\b[^>]*>(?:[\s\S]*?<\/\1>)?/gi, '')
+})
 </script>
+
+<style scoped>
+.nominee-card-justification :deep(img),
+.nominee-card-justification :deep(video),
+.nominee-card-justification :deep(iframe) {
+  display: none;
+}
+</style>

@@ -51,24 +51,7 @@ frappe.ui.form.on("Nomination Finalist", {
 		if (!frm.doc.nomination) {
 			frm
 				.add_custom_button(__("Push to Voting"), () => {
-					frappe.confirm(
-						__("Create a Nomination from this finalist so it appears in the public voting flow?"),
-						() => {
-							frappe.call({
-								method: "nominations.api.push_finalist_to_voting",
-								args: { name: frm.doc.name },
-								callback: (r) => {
-									if (r.message && r.message.nomination) {
-										frappe.show_alert({
-											message: __("Nomination {0} created.", [r.message.nomination]),
-											indicator: "green",
-										});
-									}
-									frm.reload_doc();
-								},
-							});
-						}
-					);
+					open_push_to_voting_dialog(frm);
 				}, __("Actions"))
 				.removeClass("btn-default")
 				.addClass("btn-primary");
@@ -76,6 +59,32 @@ frappe.ui.form.on("Nomination Finalist", {
 			frm.add_custom_button(__("Open Voting Nomination"), () => {
 				frappe.set_route("Form", "Nomination", frm.doc.nomination);
 			}, __("Actions"));
+
+			if (!frm.doc.is_winner) {
+				frm.add_custom_button(__("Mark as Winner"), () => {
+					frappe.confirm(
+						__("Mark this finalist as the winner of {0}? Any existing winner for this award will be replaced.", [frm.doc.award]),
+						() => {
+							frappe.call({
+								method: "nominations.api.mark_finalist_winner",
+								args: { name: frm.doc.name },
+								callback: () => {
+									frappe.show_alert({ message: __("Winner marked."), indicator: "green" });
+									frm.reload_doc();
+								},
+							});
+						}
+					);
+				}, __("Actions"));
+			} else {
+				frm.add_custom_button(__("Unmark Winner"), () => {
+					frappe.call({
+						method: "nominations.api.unmark_finalist_winner",
+						args: { name: frm.doc.name },
+						callback: () => frm.reload_doc(),
+					});
+				}, __("Actions"));
+			}
 		}
 	},
 
@@ -122,5 +131,218 @@ function render_summary(frm) {
 		})
 		.join("");
 	wrap.html(html);
+}
+
+function open_push_to_voting_dialog(frm) {
+	const rows = (frm.doc.criteria || []).filter((r) => (r.response_text || "").trim());
+	if (!rows.length) {
+		frappe.msgprint({
+			title: __("Nothing to push"),
+			message: __("This finalist has no answered criteria yet."),
+			indicator: "orange",
+		});
+		return;
+	}
+
+	// Build one Check field per criteria row, default checked.
+	const criteria_fields = rows.map((row) => ({
+		fieldtype: "Check",
+		fieldname: `crit__${row.name}`,
+		label: row.criteria_name || row.name,
+		default: 1,
+		description: (row.response_text || "").slice(0, 140) + ((row.response_text || "").length > 140 ? "…" : ""),
+	}));
+
+	const dialog = new frappe.ui.Dialog({
+		title: __("Push to Voting — Select what to include"),
+		size: "large",
+		fields: [
+			{
+				fieldtype: "Section Break",
+				label: __("Nominee Details"),
+			},
+			{
+				fieldtype: "Check",
+				fieldname: "include_photo",
+				label: __("Include Photo"),
+				default: frm.doc.nominee_photo ? 1 : 0,
+				read_only: frm.doc.nominee_photo ? 0 : 1,
+			},
+			{ fieldtype: "Column Break" },
+			{
+				fieldtype: "Check",
+				fieldname: "include_designation",
+				label: __("Include Designation"),
+				default: (frm.doc.designation || "").trim() ? 1 : 0,
+				read_only: (frm.doc.designation || "").trim() ? 0 : 1,
+			},
+			{ fieldtype: "Column Break" },
+			{
+				fieldtype: "Check",
+				fieldname: "include_organization",
+				label: __("Include Organization"),
+				default: (frm.doc.organization || "").trim() ? 1 : 0,
+				read_only: (frm.doc.organization || "").trim() ? 0 : 1,
+			},
+			{
+				fieldtype: "Section Break",
+				label: __("Criteria Responses"),
+				description: __("Pick the criteria responses to combine into the public justification."),
+			},
+			{
+				fieldtype: "Check",
+				fieldname: "include_intro",
+				label: __("Include intro message"),
+				default: (frm.doc.intro_message || "").trim() ? 1 : 0,
+				read_only: (frm.doc.intro_message || "").trim() ? 0 : 1,
+			},
+			...criteria_fields,
+			{
+				fieldtype: "Section Break",
+				label: __("Preview & Edit"),
+				description: __("Edit the justification below if needed. This is exactly what voters will see."),
+			},
+			{
+				fieldtype: "HTML",
+				fieldname: "photo_preview",
+			},
+			{
+				fieldtype: "Text Editor",
+				fieldname: "justification",
+				label: __("Justification (editable)"),
+			},
+			{
+				fieldtype: "Button",
+				fieldname: "regenerate",
+				label: __("Regenerate from selection"),
+			},
+		],
+		primary_action_label: __("Push to Voting"),
+		primary_action(values) {
+			const selection = collect_selection(values, rows);
+			if (!selection.criteria.length) {
+				frappe.msgprint({
+					title: __("Select at least one criterion"),
+					message: __("Please tick at least one criterion to include."),
+					indicator: "orange",
+				});
+				return;
+			}
+			const justification = (values.justification || "").trim();
+			if (!justification) {
+				frappe.msgprint({
+					title: __("Justification required"),
+					message: __("Please add or regenerate the justification before pushing."),
+					indicator: "orange",
+				});
+				return;
+			}
+			frappe.call({
+				method: "nominations.api.push_finalist_to_voting",
+				args: {
+					name: frm.doc.name,
+					selection: JSON.stringify(selection),
+					justification: justification,
+				},
+				freeze: true,
+				freeze_message: __("Creating Nomination…"),
+				callback: (r) => {
+					if (r.message && r.message.nomination) {
+						frappe.show_alert({
+							message: __("Nomination {0} created.", [r.message.nomination]),
+							indicator: "green",
+						});
+					}
+					dialog.hide();
+					frm.reload_doc();
+				},
+			});
+		},
+	});
+
+	const photo_wrap = dialog.get_field("photo_preview").$wrapper;
+	let user_edited = false;
+
+	function render_photo(values) {
+		const has_photo = !!values.include_photo && !!frm.doc.nominee_photo;
+		const img = has_photo
+			? `<img src="${frappe.utils.escape_html(frm.doc.nominee_photo)}" alt="" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--border-color);flex-shrink:0;">`
+			: `<div style="width:80px;height:80px;border-radius:8px;background:var(--bg-light-gray);display:flex;align-items:center;justify-content:center;color:var(--text-muted);flex-shrink:0;">${frappe.utils.icon("camera", "md")}</div>`;
+		photo_wrap.html(`
+			<div style="display:flex;gap:12px;align-items:center;padding:10px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-color);margin-bottom:8px;">
+				${img}
+				<div>
+					<div style="font-weight:600">${frappe.utils.escape_html(frm.doc.nominee_name || "")}</div>
+					<div class="text-muted small">${has_photo ? __("Photo will be shown to voters.") : __("No photo will be shown.")}</div>
+				</div>
+			</div>
+		`);
+	}
+
+	function regenerate_justification(force) {
+		if (user_edited && !force) return;
+		const values = dialog.get_values(true) || {};
+		const selection = collect_selection(values, rows);
+		frappe.call({
+			method: "nominations.api.preview_finalist_push",
+			args: { name: frm.doc.name, selection: JSON.stringify(selection) },
+			callback: (r) => {
+				const m = r.message || {};
+				dialog.set_value("justification", m.justification || "");
+				user_edited = false;
+			},
+		});
+	}
+
+	function refresh_all() {
+		const values = dialog.get_values(true) || {};
+		render_photo(values);
+		regenerate_justification(false);
+	}
+
+	const debounced_refresh = frappe.utils.debounce(refresh_all, 250);
+
+	// Hook every selection checkbox to refresh photo + (maybe) justification.
+	const watched = ["include_photo", "include_designation", "include_organization", "include_intro", ...rows.map((r) => `crit__${r.name}`)];
+	watched.forEach((fn) => {
+		const f = dialog.get_field(fn);
+		if (f && f.df) f.df.onchange = debounced_refresh;
+	});
+
+	// Detect manual edits to the justification so we don't clobber them on
+	// the next selection change.
+	const just_field = dialog.get_field("justification");
+	if (just_field && just_field.df) {
+		just_field.df.onchange = () => { user_edited = true; };
+	}
+
+	// "Regenerate from selection" button — force overwrite of any edits.
+	const regen_btn = dialog.get_field("regenerate");
+	if (regen_btn) {
+		regen_btn.$input.on("click", () => {
+			if (user_edited) {
+				frappe.confirm(
+					__("Discard your edits and regenerate from current selection?"),
+					() => regenerate_justification(true)
+				);
+			} else {
+				regenerate_justification(true);
+			}
+		});
+	}
+
+	dialog.show();
+	refresh_all();
+}
+
+function collect_selection(values, rows) {
+	const chosen = rows.map((r) => r.name).filter((n) => values[`crit__${n}`]);
+	return {
+		criteria: chosen,
+		include_photo: !!values.include_photo,
+		include_designation: !!values.include_designation,
+		include_organization: !!values.include_organization,
+		include_intro: !!values.include_intro,
+	};
 }
 

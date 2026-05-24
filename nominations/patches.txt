@@ -6,3 +6,4 @@
 # Patches added in this section will be executed after doctypes are migrated
 nominations.patches.v1_0.add_vote_uniqueness
 nominations.patches.v1_0.add_nomination_otp_fields
+nominations.patches.v1_0.publicise_finalist_intro_images

@@ -11,6 +11,7 @@ declare module 'vue' {
     AwardCard: typeof import('./src/components/AwardCard.vue')['default']
     CampaignHeader: typeof import('./src/components/CampaignHeader.vue')['default']
     CountdownTimer: typeof import('./src/components/CountdownTimer.vue')['default']
+    ImageLightbox: typeof import('./src/components/ImageLightbox.vue')['default']
     NominateModal: typeof import('./src/components/NominateModal.vue')['default']
     NomineeCard: typeof import('./src/components/NomineeCard.vue')['default']
     NomineeDetailsModal: typeof import('./src/components/NomineeDetailsModal.vue')['default']

@@ -116,9 +116,23 @@ def _award_payload(award_row: dict, include_finalists: bool, include_winner: boo
 			fields=["name", "nominee_name", "nominee_photo", "justification", "vote_count"],
 			order_by="vote_count DESC, submitted_at ASC",
 		)
+		# Pull designation/organization from the linked Nomination Finalist
+		# (the public Nomination doc doesn't carry these fields itself).
+		extras: dict[str, dict] = {}
+		if finalists:
+			for fin in frappe.get_all(
+				"Nomination Finalist",
+				filters={"nomination": ["in", [f.name for f in finalists]]},
+				fields=["nomination", "designation", "organization"],
+			):
+				extras[fin.nomination] = {
+					"designation": (fin.designation or "").strip(),
+					"organization": (fin.organization or "").strip(),
+				}
 		total = sum(f.vote_count or 0 for f in finalists) or 0
 		for f in finalists:
 			pct = round((f.vote_count or 0) / total * 100, 1) if total else 0.0
+			extra = extras.get(f.name, {})
 			out["finalists"].append(
 				{
 					"name": f.name,
@@ -127,6 +141,8 @@ def _award_payload(award_row: dict, include_finalists: bool, include_winner: boo
 					"justification": f.justification,
 					"vote_count": f.vote_count or 0,
 					"vote_percentage": pct,
+					"designation": extra.get("designation", ""),
+					"organization": extra.get("organization", ""),
 				}
 			)
 	return out
@@ -585,6 +601,14 @@ def get_nominee(nomination_id: str):
 	award = frappe.db.get_value(
 		"Award", row.award, ["award_name", "slug", "icon_or_image"], as_dict=True
 	)
+	extra = frappe.db.get_value(
+		"Nomination Finalist",
+		{"nomination": row.name},
+		["designation", "organization"],
+		as_dict=True,
+	) or {}
+	row["designation"] = (extra.get("designation") or "").strip()
+	row["organization"] = (extra.get("organization") or "").strip()
 	return {"finalist": row, "award": award}
 
 

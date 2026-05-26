@@ -7,7 +7,9 @@
       v-if="finalist.nominee_photo"
       :src="finalist.nominee_photo"
       :alt="finalist.nominee_name"
-      class="flex-shrink-0 rounded-lg w-16 h-16 sm:w-20 sm:h-20 object-cover bg-gray-50"
+      class="flex-shrink-0 rounded-lg w-16 h-16 sm:w-20 sm:h-20 object-cover bg-gray-50 cursor-zoom-in hover:opacity-90 transition"
+      title="Click to view full image"
+      @click="lightboxOpen = true"
     />
     <div
       v-else
@@ -15,15 +17,26 @@
     >
       {{ finalist.nominee_name?.[0]?.toUpperCase() }}
     </div>
+    <ImageLightbox
+      v-if="finalist.nominee_photo"
+      :open="lightboxOpen"
+      :src="finalist.nominee_photo"
+      :alt="finalist.nominee_name"
+      @close="lightboxOpen = false"
+    />
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-2 flex-wrap">
         <h3 class="font-semibold text-gray-900 truncate">{{ finalist.nominee_name }}</h3>
         <WinnerBadge v-if="isWinner" />
       </div>
-      <div
-        class="text-sm text-gray-600 mt-1 prose prose-sm max-w-none line-clamp-2 nominee-card-justification"
-        v-html="justificationPreview"
-      ></div>
+      <p
+        v-if="finalist.designation || finalist.organization"
+        class="text-xs sm:text-sm text-gray-600 mt-0.5 truncate"
+      >
+        <span v-if="finalist.designation" class="font-medium text-teal-700">{{ finalist.designation }}</span>
+        <span v-if="finalist.designation && finalist.organization" class="text-gray-400 mx-1.5">•</span>
+        <span v-if="finalist.organization" class="text-gray-500">{{ finalist.organization }}</span>
+      </p>
       <div class="mt-3" v-if="showResults">
         <ResultsBar :count="finalist.vote_count" :percentage="finalist.vote_percentage" />
       </div>
@@ -42,31 +55,19 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref } from 'vue'
 import ResultsBar from './ResultsBar.vue'
 import WinnerBadge from './WinnerBadge.vue'
+import ImageLightbox from './ImageLightbox.vue'
 
-const props = defineProps({
+const lightboxOpen = ref(false)
+
+defineProps({
   finalist: { type: Object, required: true },
   canVote: { type: Boolean, default: false },
   showResults: { type: Boolean, default: true },
   isWinner: { type: Boolean, default: false },
 })
 defineEmits(['vote', 'details'])
-
-// Strip <img>/<video>/<iframe> tags from the preview so cards don't show
-// full-sized media; voters see the full content in the details modal.
-const justificationPreview = computed(() => {
-  const raw = props.finalist?.justification || ''
-  if (!raw) return ''
-  return raw.replace(/<(img|video|iframe|source|picture)\b[^>]*>(?:[\s\S]*?<\/\1>)?/gi, '')
-})
 </script>
 
-<style scoped>
-.nominee-card-justification :deep(img),
-.nominee-card-justification :deep(video),
-.nominee-card-justification :deep(iframe) {
-  display: none;
-}
-</style>

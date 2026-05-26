@@ -177,7 +177,10 @@ class NominationFinalist(Document):
 	def _build_justification(self, selection: dict | None = None) -> str:
 		"""Build an HTML justification block for the public Nomination doc.
 
-		Nomination.justification is a Text Editor (HTML) field, so we emit HTML.
+		Nomination.justification is a Text Editor (HTML) field, so we emit HTML
+		with inline styles so the rendered output looks good both inside the
+		Frappe rich-text editor and on the public voting page (where the
+		surrounding ``prose`` styles also kick in).
 		"""
 		from html import escape
 
@@ -190,33 +193,70 @@ class NominationFinalist(Document):
 
 		parts: list[str] = []
 
-		# Optional intro message (rich HTML) at the very top.
-		if include_intro and (self.intro_message or "").strip():
-			parts.append(self.intro_message.strip())
-
-		# Optional nominee detail block.
-		detail_items: list[str] = []
+		# 1) Designation / Organization on the very first line so voters see
+		# the nominee's role immediately. Designation comes first, then a thin
+		# separator, then organization.
+		header_bits: list[str] = []
 		if selection.get("include_designation", True) and (self.designation or "").strip():
-			detail_items.append(
-				f"<li><strong>Designation:</strong> {escape(self.designation.strip())}</li>"
+			header_bits.append(
+				'<span style="color:#0f766e;font-weight:600">'
+				+ escape(self.designation.strip())
+				+ "</span>"
 			)
 		if selection.get("include_organization", True) and (self.organization or "").strip():
-			detail_items.append(
-				f"<li><strong>Organization:</strong> {escape(self.organization.strip())}</li>"
+			header_bits.append(
+				'<span style="color:#64748b">'
+				+ escape(self.organization.strip())
+				+ "</span>"
 			)
-		if detail_items:
-			parts.append("<ul>" + "".join(detail_items) + "</ul>")
+		if header_bits:
+			parts.append(
+				'<p style="margin:0 0 12px 0;font-size:14px;line-height:1.4">'
+				+ '<span style="color:#94a3b8;margin:0 8px">•</span>'.join(header_bits)
+				+ "</p>"
+			)
 
+		# 2) Optional intro message (rich HTML) directly under the header.
+		if include_intro and (self.intro_message or "").strip():
+			parts.append(
+				'<div style="margin:0 0 16px 0">'
+				+ self.intro_message.strip()
+				+ "</div>"
+			)
+
+		# 3) Each criteria row rendered as a soft elevated card with a colored
+		# left accent rail and a matching numbered chip. The card background
+		# stays white so the response copy is the focus; only the accent rail,
+		# the numbered chip and the title pick up the rotating palette color.
+		palette = [
+			("#7c3aed", "#ede9fe"),  # violet
+			("#0ea5e9", "#e0f2fe"),  # sky
+			("#059669", "#d1fae5"),  # emerald
+			("#d97706", "#fef3c7"),  # amber
+			("#db2777", "#fce7f3"),  # pink
+			("#4f46e5", "#e0e7ff"),  # indigo
+		]
+		shown = 0
 		for row in self.criteria or []:
 			if not include_all and row.name not in selected_set:
 				continue
 			text = (row.response_text or "").strip()
 			if not text:
 				continue
-			# Preserve line breaks from plain-text responses.
+			accent, soft = palette[shown % len(palette)]
+			shown += 1
 			body = escape(text).replace("\n", "<br>")
 			parts.append(
-				f"<h4>{escape(row.criteria_name or '')}</h4><p>{body}</p>"
+				'<div style="margin:0 0 14px 0;background:#ffffff;'
+				'border:1px solid #e5e7eb;border-left:4px solid ' + accent + ';'
+				'border-radius:10px;padding:14px 16px;'
+				'box-shadow:0 1px 2px rgba(15,23,42,0.04)">'
+				f'<h4 style="margin:0 0 8px 0;color:{accent};font-size:15px;font-weight:700;'
+				'line-height:1.35;letter-spacing:0.01em">'
+				f"{escape(row.criteria_name or '')}</h4>"
+				f'<p style="margin:0;color:#334155;font-size:14px;line-height:1.6">'
+				+ body + "</p>"
+				"</div>"
 			)
 
 		return "".join(parts)

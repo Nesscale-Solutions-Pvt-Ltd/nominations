@@ -49,7 +49,9 @@
             v-if="winnerFinalist.nominee_photo"
             :src="winnerFinalist.nominee_photo"
             :alt="winnerFinalist.nominee_name"
-            class="w-24 h-24 sm:w-28 sm:h-28 rounded-lg object-cover border-2 border-amber-300 flex-shrink-0"
+            class="w-24 h-24 sm:w-28 sm:h-28 rounded-lg object-cover border-2 border-amber-300 flex-shrink-0 cursor-zoom-in hover:opacity-90 transition"
+            title="Click to view full image"
+            @click="winnerLightboxOpen = true"
           />
           <div class="flex-1 min-w-0">
             <h3 class="text-lg sm:text-xl font-bold text-gray-900">{{ winnerFinalist.nominee_name }}</h3>
@@ -67,6 +69,13 @@
           </div>
         </div>
       </div>
+      <ImageLightbox
+        v-if="winnerFinalist"
+        :open="winnerLightboxOpen"
+        :src="winnerFinalist.nominee_photo"
+        :alt="winnerFinalist.nominee_name"
+        @close="winnerLightboxOpen = false"
+      />
       <div class="grid gap-3 md:grid-cols-2">
         <NomineeCard
           v-for="f in award.finalists"
@@ -84,8 +93,11 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import NomineeCard from './NomineeCard.vue'
+import ImageLightbox from './ImageLightbox.vue'
+
+const winnerLightboxOpen = ref(false)
 const props = defineProps({
   award: { type: Object, required: true },
   canVote: { type: Boolean, default: false },

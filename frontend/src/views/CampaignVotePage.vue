@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen">
     <CampaignHeader :campaign="campaign" :settings="settings" />
-    <main class="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <main class="max-w-5xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-4 sm:space-y-6">
       <div v-if="loading" class="flex items-center justify-center py-20 text-gray-500 gap-2">
         <Spinner class="h-4 w-4" /> Loading…
       </div>

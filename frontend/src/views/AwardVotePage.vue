@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen">
     <CampaignHeader :campaign="campaign" :settings="settings" />
-    <main class="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <main class="max-w-5xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-4 sm:space-y-6">
       <div v-if="loading" class="flex items-center justify-center py-20 text-gray-500 gap-2">
         <Spinner class="h-4 w-4" /> Loading…
       </div>
@@ -13,13 +13,14 @@
         <p class="text-gray-700">{{ stateMessage }}</p>
       </div>
       <template v-else>
-        <div class="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3">
-          <span class="text-sm font-medium text-gray-700">{{ award?.award_name }}</span>
+        <div class="flex items-start sm:items-center justify-between gap-2 bg-white border border-gray-200 rounded-xl px-3 sm:px-4 py-3 flex-wrap sm:flex-nowrap">
+          <span class="text-sm font-medium text-gray-700 break-words min-w-0 flex-1">{{ award?.award_name }}</span>
           <CountdownTimer
             v-if="campaign.status === 'Voting Open'"
             :target="campaign.voting_end"
+            class="flex-shrink-0"
           />
-          <Badge v-else theme="gray" variant="subtle" label="Voting Closed" />
+          <Badge v-else theme="gray" variant="subtle" label="Voting Closed" class="flex-shrink-0" />
         </div>
         <AwardCard
           v-if="award"

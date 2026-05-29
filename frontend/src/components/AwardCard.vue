@@ -45,40 +45,65 @@
     </div>
     <template v-else>
       <div
-        v-if="winnerFinalist"
-        class="mb-5 rounded-xl border border-amber-300 bg-gradient-to-br from-amber-50 via-yellow-50 to-white p-4 sm:p-5 shadow-sm"
+        v-if="votingClosed && !winnerFinalist"
+        class="mb-5 rounded-xl border-2 border-dashed border-amber-300 bg-gradient-to-br from-amber-50 to-white p-6 sm:p-8 text-center"
       >
-        <div class="flex items-center gap-2 mb-3">
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500 text-white text-xs font-semibold uppercase tracking-wide">
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 mb-3">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6 text-amber-600"><path d="M10 1.5l2.6 5.27 5.82.85-4.21 4.1.99 5.78L10 14.77l-5.2 2.73.99-5.78-4.21-4.1 5.82-.85L10 1.5z"/></svg>
+        </div>
+        <h3 class="text-base sm:text-lg font-semibold text-gray-900">Voting has ended</h3>
+        <p class="text-sm text-amber-800 mt-1 font-medium">The winner will be announced soon. Stay tuned!</p>
+      </div>
+      <div
+        v-else-if="winnerFinalist"
+        class="mb-5 rounded-xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 via-yellow-50 to-white p-4 sm:p-5 shadow-md"
+      >
+        <div class="flex items-center gap-2 mb-4 flex-wrap">
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500 text-white text-xs font-bold uppercase tracking-wide shadow-sm">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5"><path d="M10 1.5l2.6 5.27 5.82.85-4.21 4.1.99 5.78L10 14.77l-5.2 2.73.99-5.78-4.21-4.1 5.82-.85L10 1.5z"/></svg>
             Winner
           </span>
-          <span class="text-xs text-amber-700">{{ award.award_name }}</span>
+          <span class="text-xs sm:text-sm font-medium text-amber-800">{{ award.award_name }}</span>
         </div>
-        <div class="flex flex-col sm:flex-row gap-4 items-start">
+        <div class="flex gap-4 items-start">
           <img
             v-if="winnerFinalist.nominee_photo"
             :src="winnerFinalist.nominee_photo"
             :alt="winnerFinalist.nominee_name"
-            class="w-24 h-24 sm:w-28 sm:h-28 rounded-lg object-cover border-2 border-amber-300 flex-shrink-0 cursor-zoom-in hover:opacity-90 transition"
+            class="w-20 h-20 sm:w-28 sm:h-28 rounded-lg object-cover border-2 border-amber-300 flex-shrink-0 cursor-zoom-in hover:opacity-90 transition shadow-sm"
             title="Click to view full image"
             @click="winnerLightboxOpen = true"
           />
+          <div
+            v-else
+            class="w-20 h-20 sm:w-28 sm:h-28 rounded-lg bg-amber-100 border-2 border-amber-300 flex items-center justify-center text-amber-700 font-bold text-2xl flex-shrink-0"
+          >
+            {{ winnerFinalist.nominee_name?.[0]?.toUpperCase() }}
+          </div>
           <div class="flex-1 min-w-0">
-            <h3 class="text-lg sm:text-xl font-bold text-gray-900">{{ winnerFinalist.nominee_name }}</h3>
-            <div
-              v-if="winnerFinalist.justification"
-              class="text-sm text-gray-700 mt-1.5 line-clamp-3 prose prose-sm max-w-none award-winner-justification"
-              v-html="winnerJustificationPreview"
-            ></div>
-            <button
-              v-if="winnerFinalist.justification"
-              type="button"
-              class="text-xs font-medium text-amber-700 hover:text-amber-800 mt-2"
-              @click="$emit('details', { award, finalist: winnerFinalist })"
-            >View full details →</button>
+            <h3 class="text-base sm:text-xl font-bold text-gray-900 leading-snug break-words">{{ winnerFinalist.nominee_name }}</h3>
+            <p
+              v-if="winnerFinalist.designation || winnerFinalist.organization"
+              class="text-xs sm:text-sm mt-1 break-words"
+            >
+              <span v-if="winnerFinalist.designation" class="font-medium text-teal-700">{{ winnerFinalist.designation }}</span>
+              <span v-if="winnerFinalist.designation && winnerFinalist.organization" class="text-gray-400 mx-1.5">•</span>
+              <span v-if="winnerFinalist.organization" class="text-gray-500">{{ winnerFinalist.organization }}</span>
+            </p>
+            <div v-if="winnerFinalist.vote_count > 0" class="text-xs text-amber-800 mt-1.5 font-medium">
+              {{ winnerFinalist.vote_count }} {{ winnerFinalist.vote_count === 1 ? 'vote' : 'votes' }}<span v-if="winnerFinalist.vote_percentage"> • {{ winnerFinalist.vote_percentage.toFixed(1) }}%</span>
+            </div>
           </div>
         </div>
+        <button
+          v-if="winnerFinalist.justification"
+          type="button"
+          class="mt-4 w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold shadow-sm transition"
+          @click="$emit('details', { award, finalist: winnerFinalist })"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9z" clip-rule="evenodd"/></svg>
+          View full details
+        </button>
       </div>
       <ImageLightbox
         v-if="winnerFinalist"
@@ -113,6 +138,7 @@ const props = defineProps({
   award: { type: Object, required: true },
   canVote: { type: Boolean, default: false },
   showResults: { type: Boolean, default: true },
+  votingClosed: { type: Boolean, default: false },
 })
 defineEmits(['vote', 'details'])
 const totalVotes = computed(() =>

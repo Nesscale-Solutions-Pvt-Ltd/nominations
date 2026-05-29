@@ -39,3 +39,53 @@ frappe.listview_settings["Nomination"] = {
 		});
 	},
 };
+
+frappe.ui.form.on("Nomination", {
+	refresh(frm) {
+		if (frm.is_new() || !frm.doc.award) return;
+
+		// Find the linked Nomination Finalist (if any) so we can mark/unmark winner.
+		frappe.db.get_value(
+			"Nomination Finalist",
+			{ nomination: frm.doc.name },
+			["name", "is_winner"]
+		).then((r) => {
+			const fin = r && r.message;
+			if (!fin || !fin.name) return;
+
+			if (!fin.is_winner) {
+				frm.add_custom_button(__("Mark as Winner"), () => {
+					frappe.confirm(
+						__("Mark {0} as the winner of {1}? Any existing winner will be replaced.",
+							[frm.doc.nominee_name || frm.doc.name, frm.doc.award]),
+						() => {
+							frappe.call({
+								method: "nominations.api.mark_finalist_winner",
+								args: { name: fin.name },
+								callback: () => {
+									frappe.show_alert({ message: __("Winner marked."), indicator: "green" });
+									frm.reload_doc();
+								},
+							});
+						}
+					);
+				}, __("Actions"));
+			} else {
+				frm.add_custom_button(__("Unmark Winner"), () => {
+					frappe.call({
+						method: "nominations.api.unmark_finalist_winner",
+						args: { name: fin.name },
+						callback: () => {
+							frappe.show_alert({ message: __("Winner unmarked."), indicator: "orange" });
+							frm.reload_doc();
+						},
+					});
+				}, __("Actions"));
+			}
+
+			frm.add_custom_button(__("Open Nomination Finalist"), () => {
+				frappe.set_route("Form", "Nomination Finalist", fin.name);
+			}, __("Actions"));
+		});
+	},
+});

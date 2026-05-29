@@ -56,6 +56,12 @@
                   <div class="flex items-start gap-2 flex-wrap">
                     <div class="font-semibold text-gray-900 group-hover:text-brand transition leading-snug break-words min-w-0 flex-1">{{ a.award_name }}</div>
                     <WinnerBadge v-if="a.winner_nomination" class="flex-shrink-0 mt-0.5" />
+                    <span
+                      v-else-if="campaign.status === 'Closed'"
+                      class="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full flex-shrink-0 mt-0.5"
+                    >
+                      Winner soon
+                    </span>
                   </div>
                   <div class="text-sm text-gray-500 mt-1 line-clamp-2 break-words" v-if="stripHtml(a.description)">{{ stripHtml(a.description) }}</div>
                   <div class="flex items-center gap-3 text-xs text-gray-500 mt-2 flex-wrap">

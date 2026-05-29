@@ -26,6 +26,7 @@
           v-if="award"
           :award="award"
           :can-vote="campaign.status === 'Voting Open'"
+          :voting-closed="campaign.status === 'Closed'"
           :show-results="true"
           @vote="onVote"
           @details="onDetails"

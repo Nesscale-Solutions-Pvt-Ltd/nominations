@@ -7,10 +7,127 @@ frappe.ui.form.on("Award", {
 				frappe.show_alert({ message: __("Copied"), indicator: "green" });
 			});
 		}
+
+		const has_winner = !!frm.doc.winner_nomination;
+		frm.add_custom_button(
+			has_winner ? __("Change Winner") : __("Set Winner"),
+			() => open_winner_picker(frm),
+			__("Actions"),
+		);
+		if (has_winner) {
+			frm.add_custom_button(__("Clear Winner"), () => {
+				frappe.confirm(__("Remove the current winner for this award?"), () => {
+					clear_award_winner(frm);
+				});
+			}, __("Actions"));
+		}
+
 		render_nominations_tab(frm);
 		render_votes_tab(frm);
 	},
 });
+
+// ---------------------------------------------------------------------------
+// Winner picker — list all finalists with a radio to switch winner in 1 click
+// ---------------------------------------------------------------------------
+
+function open_winner_picker(frm) {
+	frappe.db.get_list("Nomination Finalist", {
+		filters: { award: frm.doc.name },
+		fields: [
+			"name", "nominee_name", "nominee_photo", "designation", "organization",
+			"is_winner", "nomination", "status", "score_percentage",
+			"total_marks_awarded", "total_max_marks",
+		],
+		order_by: "is_winner desc, score_percentage desc, nominee_name asc",
+		limit: 200,
+	}).then((rows) => {
+		if (!rows || !rows.length) {
+			frappe.msgprint(__("No finalists found for this award."));
+			return;
+		}
+		const current = frm.doc.winner_nomination;
+		const current_fin = (rows.find((r) => r.nomination && r.nomination === current) || {}).name || "";
+
+		const list_html = rows.map((r) => {
+			const photo = r.nominee_photo
+				? `<img src="${frappe.utils.escape_html(r.nominee_photo)}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;" />`
+				: `<div style="width:40px;height:40px;border-radius:50%;background:var(--bg-light);display:flex;align-items:center;justify-content:center;color:var(--text-muted);flex-shrink:0;font-weight:600;">${(r.nominee_name || "?").charAt(0).toUpperCase()}</div>`;
+			const meta_bits = [];
+			if (r.designation) meta_bits.push(`<span style="color:#0f766e;font-weight:500;">${frappe.utils.escape_html(r.designation)}</span>`);
+			if (r.organization) meta_bits.push(`<span style="color:var(--text-muted);">${frappe.utils.escape_html(r.organization)}</span>`);
+			const score = r.total_max_marks
+				? `<span style="font-size:12px;color:var(--text-muted);">${r.total_marks_awarded || 0} / ${r.total_max_marks} (${(r.score_percentage || 0).toFixed(1)}%)</span>`
+				: "";
+			const winner_pill = r.is_winner
+				? `<span class="indicator-pill yellow" style="margin-left:6px;">${__("Current winner")}</span>` : "";
+			return `
+				<label style="display:flex;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--border-color);border-radius:8px;margin-bottom:8px;cursor:pointer;background:var(--card-bg,#fff);">
+					<input type="radio" name="winner-pick" value="${frappe.utils.escape_html(r.name)}" ${r.name === current_fin ? "checked" : ""} style="margin-right:4px;" />
+					${photo}
+					<div style="flex:1;min-width:0;">
+						<div style="font-weight:600;">${frappe.utils.escape_html(r.nominee_name || "")}${winner_pill}</div>
+						<div style="font-size:12px;margin-top:2px;">${meta_bits.join(" • ")}</div>
+					</div>
+					${score}
+				</label>
+			`;
+		}).join("");
+
+		const d = new frappe.ui.Dialog({
+			title: __("Set / Change Winner"),
+			size: "large",
+			fields: [
+				{ fieldtype: "HTML", fieldname: "list", options: `<div style="max-height:60vh;overflow:auto;">${list_html}</div>` },
+			],
+			primary_action_label: __("Set as Winner"),
+			primary_action() {
+				const picked = d.$wrapper.find("input[name='winner-pick']:checked").val();
+				if (!picked) {
+					frappe.msgprint(__("Select a finalist first."));
+					return;
+				}
+				frappe.call({
+					method: "nominations.api.mark_finalist_winner",
+					args: { name: picked },
+					freeze: true,
+					freeze_message: __("Updating winner…"),
+					callback: () => {
+						frappe.show_alert({ message: __("Winner updated."), indicator: "green" });
+						d.hide();
+						frm.reload_doc();
+					},
+				});
+			},
+		});
+		d.show();
+	});
+}
+
+function clear_award_winner(frm) {
+	const current = frm.doc.winner_nomination;
+	if (!current) return;
+	frappe.db.get_value("Nomination Finalist",
+		{ award: frm.doc.name, nomination: current },
+		"name",
+	).then((r) => {
+		const fin = r && r.message && r.message.name;
+		if (!fin) {
+			// Fallback: clear the award field directly.
+			frappe.db.set_value("Award", frm.doc.name, "winner_nomination", null)
+				.then(() => frm.reload_doc());
+			return;
+		}
+		frappe.call({
+			method: "nominations.api.unmark_finalist_winner",
+			args: { name: fin },
+			callback: () => {
+				frappe.show_alert({ message: __("Winner cleared."), indicator: "orange" });
+				frm.reload_doc();
+			},
+		});
+	});
+}
 
 // ---------------------------------------------------------------------------
 // Nominations tab — list with favorite toggle + "favorites only" filter

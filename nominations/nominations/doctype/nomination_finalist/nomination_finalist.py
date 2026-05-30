@@ -246,6 +246,34 @@ class NominationFinalist(Document):
 			accent, soft = palette[shown % len(palette)]
 			shown += 1
 			body = escape(text).replace("\n", "<br>")
+
+			# Marks pill — "8 / 10" next to the criteria title when evaluated.
+			marks_pill = ""
+			if cint(row.max_marks):
+				awarded = cint(row.marks_awarded)
+				total = cint(row.max_marks)
+				marks_pill = (
+					f'<span style="display:inline-block;margin-left:8px;padding:2px 10px;'
+					f'background:{soft};color:{accent};border-radius:9999px;'
+					f'font-size:12px;font-weight:700;letter-spacing:0.02em;'
+					f'vertical-align:middle">{awarded} / {total}</span>'
+				)
+
+			# Optional evaluator note rendered below the response.
+			comment_html = ""
+			comment = (row.evaluator_comments or "").strip()
+			if comment:
+				comment_html = (
+					'<div style="margin-top:10px;padding:10px 12px;background:#f8fafc;'
+					'border-left:3px solid #cbd5e1;border-radius:6px;'
+					'font-size:13px;color:#475569;line-height:1.55">'
+					'<span style="font-weight:600;color:#0f172a;display:block;'
+					'margin-bottom:2px;font-size:12px;text-transform:uppercase;'
+					'letter-spacing:0.04em">Evaluator note</span>'
+					+ escape(comment).replace("\n", "<br>")
+					+ "</div>"
+				)
+
 			parts.append(
 				'<div style="margin:0 0 14px 0;background:#ffffff;'
 				'border:1px solid #e5e7eb;border-left:4px solid ' + accent + ';'
@@ -253,10 +281,11 @@ class NominationFinalist(Document):
 				'box-shadow:0 1px 2px rgba(15,23,42,0.04)">'
 				f'<h4 style="margin:0 0 8px 0;color:{accent};font-size:15px;font-weight:700;'
 				'line-height:1.35;letter-spacing:0.01em">'
-				f"{escape(row.criteria_name or '')}</h4>"
+				f"{escape(row.criteria_name or '')}{marks_pill}</h4>"
 				f'<p style="margin:0;color:#334155;font-size:14px;line-height:1.6">'
 				+ body + "</p>"
-				"</div>"
+				+ comment_html
+				+ "</div>"
 			)
 
 		return "".join(parts)
@@ -273,15 +302,49 @@ class NominationFinalist(Document):
 	def mark_winner(self):
 		"""Mark this finalist as the winner of its award.
 
-		Sets the ``Award.winner_nomination`` to the linked voting Nomination
-		(if any) so the public voting / campaign page can render the winner.
+		Workflow:
+		  * If this finalist hasn't been pushed to a voting Nomination yet, try
+		    to find a matching one by phone + award + is_finalist=1. If that
+		    fails, auto-push so the user doesn't have to do it manually.
+		  * Re-render the linked Nomination's justification so the latest
+		    per-criteria marks and evaluator comments are visible on the public
+		    voting page (winner card + details modal).
+		  * Set ``Award.winner_nomination`` and flip the finalist's own flags.
 		"""
+		# 1) Resolve / create the linked Nomination ----------------------------
 		if not self.nomination:
-			frappe.throw(_("Push this finalist to voting before marking as winner."))
-		# Clear any previous winner for the award (one winner per award).
+			matched = self._find_matching_nomination()
+			if matched:
+				self.db_set("nomination", matched)
+			else:
+				# Fall back to auto-push so this single click does everything.
+				self.push_to_voting()
+				self.reload()
+		if not self.nomination:
+			frappe.throw(_("Could not link this finalist to a voting Nomination."))
+
+		# 2) Refresh the Nomination's justification with marks + comments ------
+		try:
+			justification = self._build_justification({
+				"include_intro": bool((self.intro_message or "").strip()),
+				"include_designation": True,
+				"include_organization": True,
+				"include_photo": True,
+			})
+			nom_updates = {"justification": justification, "is_finalist": 1}
+			if self.nominee_photo:
+				nom_updates["nominee_photo"] = self.nominee_photo
+			frappe.db.set_value("Nomination", self.nomination, nom_updates,
+				update_modified=False)
+		except Exception:
+			frappe.log_error(
+				title="Nomination Finalist: failed to refresh justification on mark_winner",
+				message=frappe.get_traceback(),
+			)
+
+		# 3) Clear any previous winner for the same award ---------------------
 		previous = frappe.db.get_value("Award", self.award, "winner_nomination")
 		if previous and previous != self.nomination:
-			# Unset the is_winner flag on the prior finalist if we can find it.
 			prior = frappe.db.get_value(
 				"Nomination Finalist", {"award": self.award, "nomination": previous}, "name"
 			)
@@ -290,9 +353,30 @@ class NominationFinalist(Document):
 					"is_winner": 0,
 					"status": "Not Selected",
 				}, update_modified=False)
+
+		# 4) Set new winner ----------------------------------------------------
 		frappe.db.set_value("Award", self.award, "winner_nomination", self.nomination)
 		self.db_set("is_winner", 1)
 		self.db_set("status", "Winner")
+
+	def _find_matching_nomination(self) -> str | None:
+		"""Find a public Nomination for this finalist by phone + award.
+
+		Used by ``mark_winner`` so admins don't have to push-to-voting first
+		when a Nomination already exists from the public nomination flow.
+		"""
+		phone = (self.nominee_phone or "").strip()
+		if not phone or not self.award:
+			return None
+		return frappe.db.get_value(
+			"Nomination",
+			{
+				"award": self.award,
+				"nominator_phone": phone,
+				"is_finalist": 1,
+			},
+			"name",
+		)
 
 	def unmark_winner(self):
 		current = frappe.db.get_value("Award", self.award, "winner_nomination")
